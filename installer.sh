@@ -55,6 +55,7 @@ echo "WARNING: The following command will erase all data on $ROOT_PARTITION"
 read -e -p "Are you sure you want to proceed? (y/n): " -n 1
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
+    echo "Formatting $ROOT_PARTITION as btrfs..."
     mkfs.btrfs -f "$ROOT_PARTITION"
 else
     echo "Aborting..."
@@ -64,10 +65,15 @@ fi
 echo "Creating subvolumes..."
 
 mount "$ROOT_PARTITION" /mnt
+echo "Creating subvolume @..."
 btrfs subvolume create /mnt/@
+echo "Creating subvolume @home..."
 btrfs subvolume create /mnt/@home
+echo "Creating subvolume @snapshots..."
 btrfs subvolume create /mnt/@snapshots
+echo "Creating subvolume @var_log..."
 btrfs subvolume create /mnt/@var_log
+echo "Creating subvolume @pacman_pkgs..."
 btrfs subvolume create /mnt/@pacman_pkgs
 
 mkdir /mnt/@/home
@@ -79,10 +85,105 @@ mkdir -p /mnt/@/var/cache/pacman/pkg
 umount -R /mnt
 
 echo "Mounting subvolumes..."
+echo "Mounting @..."
 mount -o noatime,compress=zstd:1,autodefrag,subvol=@ "$ROOT_PARTITION" /mnt
+echo "Mounting @home..."
 mount -o noatime,compress=zstd:1,autodefrag,subvol=@home "$ROOT_PARTITION" /mnt/home
+echo "Mounting @snapshots..."
 mount -o noatime,compress=zstd:1,autodefrag,subvol=@snapshots,nodev,nosuid,noexec "$ROOT_PARTITION" /mnt/.snapshots
+echo "Mounting @var_log..."
 mount -o noatime,compress=zstd:1,autodefrag,subvol=@var_log,nodev,nosuid,noexec "$ROOT_PARTITION" /mnt/var/log
+echo "Mounting @pacman_pkgs..."
 mount -o noatime,compress=zstd:1,autodefrag,subvol=@pacman_pkgs,nodev,nosuid,noexec "$ROOT_PARTITION" /mnt/var/cache/pacman/pkg
 
+echo "Mounting EFI partition..."
 mount "$EFI_PARTITION" /mnt/efi
+
+echo "Installing base packages..."
+pacstrap -K /mnt base base-devel linux-zen linux-zen-headers linux-firmware sudo nano btrfs-progs networkmanager iwd reflector git sed
+
+echo "Generating fstab..."
+genfstab -U /mnt >> /mnt/etc/fstab
+
+
+arch-chroot /mnt ln -sf /usr/share/zoneinfo/Europe/Warsaw /etc/localtime
+arch-chroot /mnt hwclock --systohc
+arch-chroot /mnt sed -i "s/#en_US.UTF-8/en_US.UTF-8/" /etc/locale.gen
+arch-chroot /mnt sed -i "s/#pl_PL.UTF-8/pl_PL.UTF-8/" /etc/locale.gen
+
+arch-chroot /mnt locale-gen
+
+
+echo "LANG=pl_PL.UTF-8" > /mnt/etc/locale.conf
+echo "KEYMAP=pl" > /mnt/etc/vconsole.conf
+
+ln -sf /run/systemd/resolve/stub-resolv.conf /mnt/etc/resolv.conf
+arch-chroot /mnt systemctl enable systemd-resolved.service
+
+arch-chroot /mnt systemctl enable NetworkManager.service
+arch-chroot /mnt systemctl enable iwd.service
+
+echo "Editing mkinitcpio ..."
+sed -i '/^HOOKS=/ s/ keyboard//' /mnt/etc/mkinitcpio.conf
+sed -i '/^HOOKS=/ s/ udev//' /mnt/etc/mkinitcpio.conf
+sed -i '/^HOOKS=/ s/ keymap//' /mnt/etc/mkinitcpio.conf
+sed -i '/^HOOKS=/ s/ consolefont//' /mnt/etc/mkinitcpio.conf
+sed -i '/^HOOKS=/ s/base/base systemd keyboard/' /mnt/etc/mkinitcpio.conf
+sed -i '/^HOOKS=/ s/block/sd-vconsole block/' /mnt/etc/mkinitcpio.conf
+
+sed -i -E "s@^(#|)default_uki=.*@default_uki=\"/efi/EFI/Linux/ArchLinux-linux-zen.efi\"@" /mnt/etc/mkinitcpio.d/linux-zen.preset
+sed -i -E "s@^(#|)fallback_uki=.*@fallback_uki=\"/efi/EFI/Linux/ArchLinux-linux-zen-fallback.efi\"@" /mnt/etc/mkinitcpio.d/linux-zen.preset
+# Edit default_options= and fallback_options=
+sed -i -E "s@^(#|)default_options=.*@default_options=\"--splash /usr/share/systemd/bootctl/splash-arch.bmp\"@" /mnt/etc/mkinitcpio.d/linux-zen.preset
+sed -i -E "s@^(#|)fallback_options=.*@fallback_options=\"-S autodetect --cmdline /etc/kernel/cmdline_fallback\"@" /mnt/etc/mkinitcpio.d/linux-zen.preset
+# comment out default_image= and fallback_image=
+sed -i -E "s@^(#|)default_image=.*@#&@" /mnt/etc/mkinitcpio.d/linux-zen.preset
+sed -i -E "s@^(#|)fallback_image=.*@#&@" /mnt/etc/mkinitcpio.d/linux-zen.preset
+
+ROOT_UUID=$(lsblk -no UUID "$ROOT_PARTITION")
+
+echo "root=UUID=$ROOT_UUID rw rootfstype=btrfs rootlags=subvol=/@ modprobe.blacklist=pcspkr" > /mnt/etc/kernel/cmdline
+echo "root=UUID=$ROOT_UUID rw rootfstype=btrfs rootlags=subvol=/@ modprobe.blacklist=pcspkr" > /mnt/etc/kernel/cmdline_fallback
+
+
+rm /mnt/efi/initramfs-*.img 2>/dev/null
+rm /mnt/boot/initramfs-*.img 2>/dev/null
+
+echo "Regenerating the initramfs ..."
+arch-chroot /mnt mkinitcpio -P
+
+echo '%wheel      ALL=(ALL:ALL) ALL' > /mnt/etc/sudoers.d/enable-wheel.conf
+echo 'Defaults passwd_timeout=0' > /mnt/etc/sudoers.d/disable-timeout.conf
+
+sed -i "/\[multilib\]/,/Include/"'s/^#//' /mnt/etc/pacman.conf
+sed -i 's/^#Color/Color\nILoveCandy/' /mnt/etc/pacman.conf
+sed -i 's/^#ParallelDownloads/ParallelDownloads/' /mnt/etc/pacman.conf
+
+
+sed -i '/^OPTIONS=/s/\b lto\b/ !lto/g' /mnt/etc/makepkg.conf
+sed -i '/^OPTIONS=/s/\b debug\b/ !debug/g' /mnt/etc/makepkg.conf
+
+TOTAL_MEM=$(cat /proc/meminfo | grep -i 'memtotal' | grep -o '[[:digit:]]*')
+nc=$(grep -c ^processor /proc/cpuinfo)
+
+if [[  $TOTAL_MEM -gt 8000000 ]]; then
+    sed -i "s/#MAKEFLAGS=\"-j2\"/MAKEFLAGS=\"-j$nc\"/g" /mnt/etc/makepkg.conf
+    sed -i "s/COMPRESSXZ=(xz -c -z -)/COMPRESSXZ=(xz -c -T $nc -z -)/g" /mnt/etc/makepkg.conf
+fi
+
+echo "Installing systemd-boot"
+arch-chroot /mnt bootctl install
+
+
+echo "Enter a password for root:"
+read -s PASSWORD
+echo "root:$PASSWORD" | arch-chroot /mnt chpasswd
+
+echo "Enter username:"
+read USERNAME
+
+echo "Enter password for $USERNAME:"
+read -s PASSWORD
+
+arch-chroot /mnt useradd -m -G wheel -s /bin/bash "$USERNAME"
+echo "$USERNAME:$PASSWORD" | arch-chroot /mnt chpasswd
