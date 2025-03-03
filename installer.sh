@@ -55,7 +55,7 @@ echo "WARNING: The following command will erase all data on $ROOT_PARTITION"
 read -e -p "Are you sure you want to proceed? (y/n): " -n 1
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-    mkfs.btrfs "$ROOT_PARTITION"
+    mkfs.btrfs -f "$ROOT_PARTITION"
 else
     echo "Aborting..."
     exit 1
