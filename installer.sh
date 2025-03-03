@@ -24,11 +24,13 @@ if mountpoint -q /mnt; then
     exit 1
 fi
 
-echo "Before proceeding, please create the necessary partitions:"
+echo "Please create the necessary partitions:"
 echo "1. EFI partition (e.g., /dev/sda1) with a vfat filesystem."
 echo "2. Root partition (e.g., /dev/sda2)."
 echo "System will use btrfs, so don't create a home partition."
 echo "Use a partitioning tool like 'fdisk' or 'gparted' to manage disk partitions."
+
+lsblk -o NAME,FSTYPE,SIZE,MOUNTPOINT,LABEL
 
 read -e -p "Please enter the EFI partition (e.g., /dev/sda1): " EFI_PARTITION
 PARTITION_TYPE=$(lsblk -no TYPE "$EFI_PARTITION" 2>/dev/null | head -n 1)
