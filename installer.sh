@@ -82,6 +82,8 @@ mkdir /mnt/@/efi
 mkdir -p /mnt/@/var/log
 mkdir -p /mnt/@/var/cache/pacman/pkg
 
+btrfs subvolume set-default 256 /mnt
+
 umount -R /mnt
 
 echo "Mounting subvolumes..."
@@ -116,6 +118,12 @@ echo "LANG=pl_PL.UTF-8" >/mnt/etc/locale.conf
 echo "KEYMAP=pl" >/mnt/etc/vconsole.conf
 
 ln -sf /run/systemd/resolve/stub-resolv.conf /mnt/etc/resolv.conf
+
+mkdir -p /mnt/etc/systemd/resolved.conf.d/
+sh -c "echo '[Resolve]\nDNS=1.1.1.1#cloudflare-dns.com 1.0.0.1#cloudflare-dns.com 2606:4700:4700::1111#cloudflare-dns.com 2606:4700:4700::1001#cloudflare-dns.com' > /mnt/etc/systemd/resolved.conf.d/dns-over-tls.conf"
+sh -c "echo 'FallbackDNS=1.1.1.1#cloudflare-dns.com 9.9.9.9#dns.quad9.net 8.8.8.8#dns.google 2606:4700:4700::1111#cloudflare-dns.com 2620:fe::9#dns.quad9.net 2001:4860:4860::8888#dns.google' >> /mnt/etc/systemd/resolved.conf.d/dns-over-tls.conf"
+sh -c "echo 'DNSOverTLS=yes' >> /mnt/etc/systemd/resolved.conf.d/dns-over-tls.conf"
+
 arch-chroot /mnt systemctl enable systemd-resolved.service
 
 arch-chroot /mnt systemctl enable NetworkManager.service
@@ -149,7 +157,7 @@ rm /mnt/boot/initramfs-*.img 2>/dev/null
 echo "Regenerating the initramfs ..."
 arch-chroot /mnt mkinitcpio -P
 
-echo '%wheel      ALL=(ALL:ALL) ALL' >/mnt/etc/sudoers.d/enable-wheel.conf
+sed -i '/^# %wheel ALL=(ALL:ALL) ALL/ s/# //' /mnt/etc/sudoers
 echo 'Defaults passwd_timeout=0' >/mnt/etc/sudoers.d/disable-timeout.conf
 
 sed -i "/\[multilib\]/,/Include/"'s/^#//' /mnt/etc/pacman.conf
