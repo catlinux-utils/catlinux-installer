@@ -61,3 +61,28 @@ else
     exit 1
 fi
 
+echo "Creating subvolumes..."
+
+mount "$ROOT_PARTITION" /mnt
+btrfs subvolume create /mnt/@
+btrfs subvolume create /mnt/@home
+btrfs subvolume create /mnt/@snapshots
+btrfs subvolume create /mnt/@var_log
+btrfs subvolume create /mnt/@pacman_pkgs
+
+mkdir /mnt/@/home
+mkdir /mnt/@/.snapshots
+mkdir /mnt/@/efi
+mkdir -p /mnt/@/var/log
+mkdir -p /mnt/@/var/cache/pacman/pkg
+
+umount -R /mnt
+
+echo "Mounting subvolumes..."
+mount -o noatime,compress=zstd:1,autodefrag,subvol=@ "$ROOT_PARTITION" /mnt
+mount -o noatime,compress=zstd:1,autodefrag,subvol=@home "$ROOT_PARTITION" /mnt/home
+mount -o noatime,compress=zstd:1,autodefrag,subvol=@snapshots,nodev,nosuid,noexec "$ROOT_PARTITION" /mnt/.snapshots
+mount -o noatime,compress=zstd:1,autodefrag,subvol=@var_log,nodev,nosuid,noexec "$ROOT_PARTITION" /mnt/var/log
+mount -o noatime,compress=zstd:1,autodefrag,subvol=@pacman_pkgs,nodev,nosuid,noexec "$ROOT_PARTITION" /mnt/var/cache/pacman/pkg
+
+mount "$EFI_PARTITION" /mnt/efi
