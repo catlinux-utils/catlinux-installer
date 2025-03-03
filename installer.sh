@@ -103,8 +103,7 @@ echo "Installing base packages..."
 pacstrap -K /mnt base base-devel linux-zen linux-zen-headers linux-firmware sudo nano btrfs-progs networkmanager iwd reflector git sed
 
 echo "Generating fstab..."
-genfstab -U /mnt >> /mnt/etc/fstab
-
+genfstab -U /mnt >>/mnt/etc/fstab
 
 arch-chroot /mnt ln -sf /usr/share/zoneinfo/Europe/Warsaw /etc/localtime
 arch-chroot /mnt hwclock --systohc
@@ -113,9 +112,8 @@ arch-chroot /mnt sed -i "s/#pl_PL.UTF-8/pl_PL.UTF-8/" /etc/locale.gen
 
 arch-chroot /mnt locale-gen
 
-
-echo "LANG=pl_PL.UTF-8" > /mnt/etc/locale.conf
-echo "KEYMAP=pl" > /mnt/etc/vconsole.conf
+echo "LANG=pl_PL.UTF-8" >/mnt/etc/locale.conf
+echo "KEYMAP=pl" >/mnt/etc/vconsole.conf
 
 ln -sf /run/systemd/resolve/stub-resolv.conf /mnt/etc/resolv.conf
 arch-chroot /mnt systemctl enable systemd-resolved.service
@@ -142,9 +140,8 @@ sed -i -E "s@^(#|)fallback_image=.*@#&@" /mnt/etc/mkinitcpio.d/linux-zen.preset
 
 ROOT_UUID=$(lsblk -no UUID "$ROOT_PARTITION")
 
-echo "root=UUID=$ROOT_UUID rw rootfstype=btrfs rootlags=subvol=/@ modprobe.blacklist=pcspkr" > /mnt/etc/kernel/cmdline
-echo "root=UUID=$ROOT_UUID rw rootfstype=btrfs rootlags=subvol=/@ modprobe.blacklist=pcspkr" > /mnt/etc/kernel/cmdline_fallback
-
+echo "root=UUID=$ROOT_UUID rw rootfstype=btrfs rootlags=subvol=/@ modprobe.blacklist=pcspkr" >/mnt/etc/kernel/cmdline
+echo "root=UUID=$ROOT_UUID rw rootfstype=btrfs rootlags=subvol=/@ modprobe.blacklist=pcspkr" >/mnt/etc/kernel/cmdline_fallback
 
 rm /mnt/efi/initramfs-*.img 2>/dev/null
 rm /mnt/boot/initramfs-*.img 2>/dev/null
@@ -152,13 +149,12 @@ rm /mnt/boot/initramfs-*.img 2>/dev/null
 echo "Regenerating the initramfs ..."
 arch-chroot /mnt mkinitcpio -P
 
-echo '%wheel      ALL=(ALL:ALL) ALL' > /mnt/etc/sudoers.d/enable-wheel.conf
-echo 'Defaults passwd_timeout=0' > /mnt/etc/sudoers.d/disable-timeout.conf
+echo '%wheel      ALL=(ALL:ALL) ALL' >/mnt/etc/sudoers.d/enable-wheel.conf
+echo 'Defaults passwd_timeout=0' >/mnt/etc/sudoers.d/disable-timeout.conf
 
 sed -i "/\[multilib\]/,/Include/"'s/^#//' /mnt/etc/pacman.conf
 sed -i 's/^#Color/Color\nILoveCandy/' /mnt/etc/pacman.conf
 sed -i 's/^#ParallelDownloads/ParallelDownloads/' /mnt/etc/pacman.conf
-
 
 sed -i '/^OPTIONS=/s/\b lto\b/ !lto/g' /mnt/etc/makepkg.conf
 sed -i '/^OPTIONS=/s/\b debug\b/ !debug/g' /mnt/etc/makepkg.conf
@@ -166,14 +162,13 @@ sed -i '/^OPTIONS=/s/\b debug\b/ !debug/g' /mnt/etc/makepkg.conf
 TOTAL_MEM=$(cat /proc/meminfo | grep -i 'memtotal' | grep -o '[[:digit:]]*')
 nc=$(grep -c ^processor /proc/cpuinfo)
 
-if [[  $TOTAL_MEM -gt 8000000 ]]; then
+if [[ $TOTAL_MEM -gt 8000000 ]]; then
     sed -i "s/#MAKEFLAGS=\"-j2\"/MAKEFLAGS=\"-j$nc\"/g" /mnt/etc/makepkg.conf
     sed -i "s/COMPRESSXZ=(xz -c -z -)/COMPRESSXZ=(xz -c -T $nc -z -)/g" /mnt/etc/makepkg.conf
 fi
 
 echo "Installing systemd-boot"
 arch-chroot /mnt bootctl install
-
 
 echo "Enter a password for root:"
 read -s PASSWORD
