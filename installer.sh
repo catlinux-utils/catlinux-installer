@@ -120,14 +120,13 @@ echo "KEYMAP=pl" >/mnt/etc/vconsole.conf
 ln -sf /run/systemd/resolve/stub-resolv.conf /mnt/etc/resolv.conf
 
 mkdir -p /mnt/etc/systemd/resolved.conf.d/
-sh -c "echo '[Resolve]\nDNS=1.1.1.1#cloudflare-dns.com 1.0.0.1#cloudflare-dns.com 2606:4700:4700::1111#cloudflare-dns.com 2606:4700:4700::1001#cloudflare-dns.com' > /mnt/etc/systemd/resolved.conf.d/dns-over-tls.conf"
-sh -c "echo 'FallbackDNS=1.1.1.1#cloudflare-dns.com 9.9.9.9#dns.quad9.net 8.8.8.8#dns.google 2606:4700:4700::1111#cloudflare-dns.com 2620:fe::9#dns.quad9.net 2001:4860:4860::8888#dns.google' >> /mnt/etc/systemd/resolved.conf.d/dns-over-tls.conf"
-sh -c "echo 'DNSOverTLS=yes' >> /mnt/etc/systemd/resolved.conf.d/dns-over-tls.conf"
+sh -c "echo -e '[Resolve]\nDNS=1.1.1.1#cloudflare-dns.com 1.0.0.1#cloudflare-dns.com 2606:4700:4700::1111#cloudflare-dns.com 2606:4700:4700::1001#cloudflare-dns.com' > /mnt/etc/systemd/resolved.conf.d/dns-over-tls.conf"
+sh -c "echo -e 'FallbackDNS=1.1.1.1#cloudflare-dns.com 9.9.9.9#dns.quad9.net 8.8.8.8#dns.google 2606:4700:4700::1111#cloudflare-dns.com 2620:fe::9#dns.quad9.net 2001:4860:4860::8888#dns.google' >> /mnt/etc/systemd/resolved.conf.d/dns-over-tls.conf"
+sh -c "echo -e 'DNSOverTLS=yes' >> /mnt/etc/systemd/resolved.conf.d/dns-over-tls.conf"
 
 arch-chroot /mnt systemctl enable systemd-resolved.service
 
 arch-chroot /mnt systemctl enable NetworkManager.service
-arch-chroot /mnt systemctl enable iwd.service
 
 echo "Editing mkinitcpio ..."
 sed -i '/^HOOKS=/ s/ keyboard//' /mnt/etc/mkinitcpio.conf
