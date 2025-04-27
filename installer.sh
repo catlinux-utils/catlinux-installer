@@ -56,7 +56,7 @@ read -e -p "Are you sure you want to proceed? (y/n): " -n 1
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo "Formatting $ROOT_PARTITION as btrfs..."
-    mkfs.btrfs -f "$ROOT_PARTITION"
+    mkfs.btrfs -L ArchRoot -f "$ROOT_PARTITION"
 else
     echo "Aborting..."
     exit 1
@@ -65,44 +65,37 @@ fi
 echo "Creating subvolumes..."
 
 mount "$ROOT_PARTITION" /mnt
-echo "Creating subvolume @..."
+echo "Creating subvolumes..."
 btrfs subvolume create /mnt/@
-echo "Creating subvolume @home..."
 btrfs subvolume create /mnt/@home
-echo "Creating subvolume @snapshots..."
 btrfs subvolume create /mnt/@snapshots
-echo "Creating subvolume @var_log..."
-btrfs subvolume create /mnt/@var_log
-echo "Creating subvolume @pacman_pkgs..."
-btrfs subvolume create /mnt/@pacman_pkgs
-
-mkdir /mnt/@/home
-mkdir /mnt/@/.snapshots
-mkdir /mnt/@/efi
-mkdir -p /mnt/@/var/log
-mkdir -p /mnt/@/var/cache/pacman/pkg
+btrfs subvolume create /mnt/@home-snapshots
+btrfs subvolume create /mnt/@var
+btrfs subvolume create /mnt/@var-log
+btrfs subvolume create /mnt/@pacman-pkgs
 
 btrfs subvolume set-default 256 /mnt
 
 umount -R /mnt
 
 echo "Mounting subvolumes..."
-echo "Mounting @..."
-mount -o noatime,compress=zstd:1,autodefrag,subvol=@ "$ROOT_PARTITION" /mnt
-echo "Mounting @home..."
-mount -o noatime,compress=zstd:1,autodefrag,subvol=@home "$ROOT_PARTITION" /mnt/home
-echo "Mounting @snapshots..."
-mount -o noatime,compress=zstd:1,autodefrag,subvol=@snapshots,nodev,nosuid,noexec "$ROOT_PARTITION" /mnt/.snapshots
-echo "Mounting @var_log..."
-mount -o noatime,compress=zstd:1,autodefrag,subvol=@var_log,nodev,nosuid,noexec "$ROOT_PARTITION" /mnt/var/log
-echo "Mounting @pacman_pkgs..."
-mount -o noatime,compress=zstd:1,autodefrag,subvol=@pacman_pkgs,nodev,nosuid,noexec "$ROOT_PARTITION" /mnt/var/cache/pacman/pkg
+
+mount_options="defaults,noatime,nodiratime,compress=zstd,space_cache=v2"
+mount -o compress=subvol=@,$mount_options "$ROOT_PARTITION" /mnt
+mount --mkdir -o compress=subvol=@home,$mount_options "$ROOT_PARTITION" /mnt/home
+mount --mkdir -o compress=subvol=@snapshots,,$mount_options "$ROOT_PARTITION" /mnt/.snapshots
+mount --mkdir -o compress=subvol=@home-snapshots,,$mount_options "$ROOT_PARTITION" /mnt/home/.snapshots
+
+mount --mkdir -o compress=subvol=@var,$mount_options "$ROOT_PARTITION" /mnt/var
+chattr +C /mnt/var
+mount --mkdir -o compress=subvol=@var_log,$mount_options "$ROOT_PARTITION" /mnt/var/log
+mount --mkdir -o compress=subvol=@pacman_pkgs,$mount_options "$ROOT_PARTITION" /mnt/var/cache/pacman/pkg
 
 echo "Mounting EFI partition..."
-mount "$EFI_PARTITION" /mnt/efi
+mount --mkdir -o defaults,fmask=0077,dmask=0077 "$EFI_PARTITION" /mnt/efi
 
 echo "Installing base packages..."
-pacstrap -K /mnt base base-devel linux-zen linux-zen-headers linux-firmware sudo nano btrfs-progs networkmanager iwd reflector git sed
+pacstrap -K /mnt base base-devel linux-zen linux-zen-headers linux-firmware amd-ucode intel-ucode sudo nano btrfs-progs networkmanager wpa_supplicant reflector git sed snapper
 
 echo "Generating fstab..."
 genfstab -U /mnt >>/mnt/etc/fstab
@@ -147,8 +140,8 @@ sed -i -E "s@^(#|)fallback_image=.*@#&@" /mnt/etc/mkinitcpio.d/linux-zen.preset
 
 ROOT_UUID=$(lsblk -no UUID "$ROOT_PARTITION")
 
-echo "root=UUID=$ROOT_UUID rw rootfstype=btrfs rootlags=subvol=/@ modprobe.blacklist=pcspkr" >/mnt/etc/kernel/cmdline
-echo "root=UUID=$ROOT_UUID rw rootfstype=btrfs rootlags=subvol=/@ modprobe.blacklist=pcspkr" >/mnt/etc/kernel/cmdline_fallback
+echo "root=UUID=$ROOT_UUID rw rootfstype=btrfs rootlags=subvol=@ modprobe.blacklist=pcspkr" >/mnt/etc/kernel/cmdline
+echo "root=UUID=$ROOT_UUID rw rootfstype=btrfs rootlags=subvol=@ modprobe.blacklist=pcspkr" >/mnt/etc/kernel/cmdline_fallback
 
 rm /mnt/efi/initramfs-*.img 2>/dev/null
 rm /mnt/boot/initramfs-*.img 2>/dev/null
@@ -175,7 +168,8 @@ if [[ $TOTAL_MEM -gt 8000000 ]]; then
 fi
 
 echo "Installing systemd-boot"
-arch-chroot /mnt bootctl install
+#arch-chroot /mnt bootctl install #systemd fix in next update
+bootctl --esp-path=/mnt/efi install
 
 echo "Enter a password for root:"
 read -s PASSWORD
