@@ -1,4 +1,7 @@
 #!/bin/bash
+
+set -e
+
 if [ "$(id -u)" != "0" ]; then
     if command -v sudo >/dev/null 2>&1; then
         exec sudo "$0" "$@" || exit 1
