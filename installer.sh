@@ -175,10 +175,13 @@ bootctl --esp-path=/mnt/efi install
 
 echo "Enter a password for root:"
 read -s PASSWORD
+echo "Confirm password:"
 read -s CONFIRM_PASSWORD
 while [ "$PASSWORD" != "$CONFIRM_PASSWORD" ]; do
-    echo "Passwords do not match. Please try again:"
+    echo "Passwords do not match. Please try again"
+    echo "Enter a password for root:"
     read -s PASSWORD
+    echo "Confirm password:"
     read -s CONFIRM_PASSWORD
 done
 echo "root:$PASSWORD" | arch-chroot /mnt chpasswd
