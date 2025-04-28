@@ -82,14 +82,14 @@ echo "Mounting subvolumes..."
 
 mount_options="defaults,noatime,nodiratime,compress=zstd,space_cache=v2"
 mount -o compress=subvol=@,$mount_options "$ROOT_PARTITION" /mnt
-mount --mkdir -o compress=subvol=@home,$mount_options "$ROOT_PARTITION" /mnt/home
-mount --mkdir -o compress=subvol=@snapshots,,$mount_options "$ROOT_PARTITION" /mnt/.snapshots
-mount --mkdir -o compress=subvol=@home-snapshots,,$mount_options "$ROOT_PARTITION" /mnt/home/.snapshots
+mount --mkdir -o compress=subvol=@home "$ROOT_PARTITION" /mnt/home
+mount --mkdir -o compress=subvol=@snapshots "$ROOT_PARTITION" /mnt/.snapshots
+mount --mkdir -o compress=subvol=@home-snapshots "$ROOT_PARTITION" /mnt/home/.snapshots
 
-mount --mkdir -o compress=subvol=@var,$mount_options "$ROOT_PARTITION" /mnt/var
+mount --mkdir -o compress=subvol=@var "$ROOT_PARTITION" /mnt/var
 chattr +C /mnt/var
-mount --mkdir -o compress=subvol=@var_log,$mount_options "$ROOT_PARTITION" /mnt/var/log
-mount --mkdir -o compress=subvol=@pacman_pkgs,$mount_options "$ROOT_PARTITION" /mnt/var/cache/pacman/pkg
+mount --mkdir -o compress=subvol=@var_log "$ROOT_PARTITION" /mnt/var/log
+mount --mkdir -o compress=subvol=@pacman_pkgs "$ROOT_PARTITION" /mnt/var/cache/pacman/pkg
 
 echo "Mounting EFI partition..."
 mount --mkdir -o defaults,fmask=0077,dmask=0077 "$EFI_PARTITION" /mnt/efi
