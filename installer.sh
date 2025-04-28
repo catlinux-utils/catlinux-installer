@@ -189,8 +189,17 @@ echo "root:$PASSWORD" | arch-chroot /mnt chpasswd
 echo "Enter username:"
 read USERNAME
 
-echo "Enter password for $USERNAME:"
+echo "Enter a password for $USERNAME:"
 read -s PASSWORD
+echo "Confirm password:"
+read -s CONFIRM_PASSWORD
+while [ "$PASSWORD" != "$CONFIRM_PASSWORD" ]; do
+    echo "Passwords do not match. Please try again"
+    echo "Enter a password for $USERNAME:"
+    read -s PASSWORD
+    echo "Confirm password:"
+    read -s CONFIRM_PASSWORD
+done
 
 arch-chroot /mnt useradd -m -G wheel -s /bin/bash "$USERNAME"
 echo "$USERNAME:$PASSWORD" | arch-chroot /mnt chpasswd
