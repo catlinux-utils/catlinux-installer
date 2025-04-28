@@ -82,7 +82,7 @@ echo "Mounting subvolumes..."
 
 mount_options="defaults,noatime,nodiratime,compress=zstd,space_cache=v2"
 mount -o subvol=@,$mount_options "$ROOT_PARTITION" /mnt
-mount --mkdir -o csubvol=@home "$ROOT_PARTITION" /mnt/home
+mount --mkdir -o subvol=@home "$ROOT_PARTITION" /mnt/home
 mount --mkdir -o subvol=@snapshots "$ROOT_PARTITION" /mnt/.snapshots
 mount --mkdir -o subvol=@home-snapshots "$ROOT_PARTITION" /mnt/home/.snapshots
 
