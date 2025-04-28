@@ -146,7 +146,6 @@ ROOT_UUID=$(lsblk -no UUID "$ROOT_PARTITION")
 echo "root=UUID=$ROOT_UUID rw rootfstype=btrfs rootlags=subvol=@ modprobe.blacklist=pcspkr" >/mnt/etc/kernel/cmdline
 echo "root=UUID=$ROOT_UUID rw rootfstype=btrfs rootlags=subvol=@ modprobe.blacklist=pcspkr" >/mnt/etc/kernel/cmdline_fallback
 
-rm /mnt/efi/initramfs-*.img 2>/dev/null
 rm /mnt/boot/initramfs-*.img 2>/dev/null
 
 echo "Regenerating the initramfs ..."
