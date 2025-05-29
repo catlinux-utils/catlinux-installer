@@ -98,7 +98,7 @@ echo "Mounting EFI partition..."
 mount --mkdir -o defaults,fmask=0077,dmask=0077 "$EFI_PARTITION" /mnt/efi
 
 echo "Installing base packages..."
-pacstrap -K /mnt base base-devel linux-zen linux-zen-headers linux-firmware amd-ucode intel-ucode sudo nano btrfs-progs networkmanager wpa_supplicant reflector git sed snapper
+pacstrap -K /mnt base base-devel linux-zen linux-zen-headers linux-firmware amd-ucode intel-ucode sudo nano btrfs-progs networkmanager wpa_supplicant reflector git sed snapper zram-generator
 
 echo "Generating fstab..."
 genfstab -U /mnt >>/mnt/etc/fstab
