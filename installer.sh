@@ -143,8 +143,8 @@ sed -i -E "s@^(#|)fallback_image=.*@#&@" /mnt/etc/mkinitcpio.d/linux-zen.preset
 
 ROOT_UUID=$(lsblk -no UUID "$ROOT_PARTITION")
 
-echo "root=UUID=$ROOT_UUID rw rootfstype=btrfs rootlags=subvol=@ modprobe.blacklist=pcspkr" >/mnt/etc/kernel/cmdline
-echo "root=UUID=$ROOT_UUID rw rootfstype=btrfs rootlags=subvol=@ modprobe.blacklist=pcspkr" >/mnt/etc/kernel/cmdline_fallback
+echo "root=UUID=$ROOT_UUID rw rootfstype=btrfs rootlags=subvol=@ modprobe.blacklist=pcspkr zswap.enabled=0" >/mnt/etc/kernel/cmdline
+echo "root=UUID=$ROOT_UUID rw rootfstype=btrfs rootlags=subvol=@ modprobe.blacklist=pcspkr zswap.enabled=0" >/mnt/etc/kernel/cmdline_fallback
 
 rm /mnt/boot/initramfs-*.img 2>/dev/null
 
