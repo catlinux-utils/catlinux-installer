@@ -98,7 +98,7 @@ echo "Mounting EFI partition..."
 mount --mkdir -o defaults,fmask=0077,dmask=0077 "$EFI_PARTITION" /mnt/efi
 
 echo "Installing base packages..."
-pacstrap -K /mnt base base-devel linux-zen linux-zen-headers linux-firmware amd-ucode intel-ucode sudo nano btrfs-progs networkmanager wpa_supplicant reflector git sed snapper zram-generator
+pacstrap -K /mnt base base-devel linux-zen linux-zen-headers linux-firmware amd-ucode intel-ucode sudo nano btrfs-progs networkmanager wpa_supplicant reflector git sed snapper
 
 echo "Generating fstab..."
 genfstab -U /mnt >>/mnt/etc/fstab
@@ -143,8 +143,8 @@ sed -i -E "s@^(#|)fallback_image=.*@#&@" /mnt/etc/mkinitcpio.d/linux-zen.preset
 
 ROOT_UUID=$(lsblk -no UUID "$ROOT_PARTITION")
 
-echo "root=UUID=$ROOT_UUID rw rootfstype=btrfs rootlags=subvol=@ modprobe.blacklist=pcspkr zswap.enabled=0" >/mnt/etc/kernel/cmdline
-echo "root=UUID=$ROOT_UUID rw rootfstype=btrfs rootlags=subvol=@ modprobe.blacklist=pcspkr zswap.enabled=0" >/mnt/etc/kernel/cmdline_fallback
+echo "root=UUID=$ROOT_UUID rw rootfstype=btrfs rootlags=subvol=@ modprobe.blacklist=pcspkr" >/mnt/etc/kernel/cmdline
+echo "root=UUID=$ROOT_UUID rw rootfstype=btrfs rootlags=subvol=@ modprobe.blacklist=pcspkr" >/mnt/etc/kernel/cmdline_fallback
 
 rm /mnt/boot/initramfs-*.img 2>/dev/null
 
