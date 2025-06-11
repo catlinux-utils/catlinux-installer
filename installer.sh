@@ -3,8 +3,11 @@
 set -e
 
 # Set up logging
-exec 1> >(tee "/var/log/arch_install.log") 2>&1
+LOGFILE="/var/log/arch_install_$(date +%Y%m%d_%H%M%S).log"
+exec 1> >(tee "$LOGFILE") 2>&1
 echo "Starting installation at $(date)"
+# Copy log to installed system when done
+trap 'cp "$LOGFILE" /mnt/var/log/' EXIT
 
 if [ "$(id -u)" != "0" ]; then
     if command -v sudo >/dev/null 2>&1; then
@@ -100,6 +103,8 @@ mount --mkdir -o subvol=@pacman-pkgs "$ROOT_PARTITION" /mnt/var/cache/pacman/pkg
 
 echo "Mounting EFI partition..."
 mount --mkdir -o defaults,fmask=0077,dmask=0077 "$EFI_PARTITION" /mnt/efi
+
+mkdir -p /mnt/efi/EFI/Linux
 
 echo "Installing base packages..."
 pacstrap -K /mnt base base-devel linux-zen linux-zen-headers linux-firmware amd-ucode intel-ucode sudo nano btrfs-progs networkmanager wpa_supplicant reflector git sed snapper
