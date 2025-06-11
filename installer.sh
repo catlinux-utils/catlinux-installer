@@ -2,6 +2,10 @@
 
 set -e
 
+# Set up logging
+exec 1> >(tee "/var/log/arch_install.log") 2>&1
+echo "Starting installation at $(date)"
+
 if [ "$(id -u)" != "0" ]; then
     if command -v sudo >/dev/null 2>&1; then
         exec sudo "$0" "$@" || exit 1
@@ -203,3 +207,5 @@ done
 
 arch-chroot /mnt useradd -m -G wheel -s /bin/bash "$USERNAME"
 echo "$USERNAME:$PASSWORD" | arch-chroot /mnt chpasswd
+
+echo "Installation completed at $(date)"
