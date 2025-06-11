@@ -179,8 +179,8 @@ if [[ $TOTAL_MEM -gt 8000000 ]]; then
 fi
 
 echo "Installing systemd-boot"
-arch-chroot /mnt bootctl install #systemd fix in next update
-#bootctl --esp-path=/mnt/efi install
+#arch-chroot /mnt bootctl install #systemd fix in next update?
+bootctl --esp-path=/mnt/efi install
 
 echo "Enter a password for root:"
 read -s PASSWORD
