@@ -80,11 +80,23 @@ validate_root_partition() {
 
 format_root_partition() {
     echo "WARNING: The following command will erase all data on $ROOT_PARTITION"
+    read -e -p "Do you want to encrypt the root partition? (y/n): " ENCRYPT
     read -e -p "Are you sure you want to proceed? (y/n): " -n 1
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        echo "Formatting $ROOT_PARTITION as btrfs..."
-        mkfs.btrfs -L ArchRoot -f "$ROOT_PARTITION"
+        if [[ $ENCRYPT =~ ^[Yy]$ ]]; then
+            echo "Setting up LUKS encryption..."
+            cryptsetup luksFormat --type luks2 "$ROOT_PARTITION"
+            echo "Opening encrypted partition..."
+            cryptsetup open "$ROOT_PARTITION" cryptroot
+            echo "Formatting /dev/mapper/cryptroot as btrfs..."
+            mkfs.btrfs -L ArchRoot -f /dev/mapper/cryptroot
+            ROOT_DEVICE="/dev/mapper/cryptroot"
+        else
+            echo "Formatting $ROOT_PARTITION as btrfs..."
+            mkfs.btrfs -L ArchRoot -f "$ROOT_PARTITION"
+            ROOT_DEVICE="$ROOT_PARTITION"
+        fi
     else
         echo "Aborting..."
         exit 1
@@ -93,7 +105,7 @@ format_root_partition() {
 
 create_subvolumes() {
     echo "Creating subvolumes..."
-    mount "$ROOT_PARTITION" /mnt
+    mount "$ROOT_DEVICE" /mnt
     btrfs subvolume create /mnt/@
     btrfs subvolume create /mnt/@home
     btrfs subvolume create /mnt/@snapshots
@@ -108,14 +120,14 @@ create_subvolumes() {
 mount_subvolumes() {
     echo "Mounting subvolumes..."
     mount_options="defaults,noatime,nodiratime,compress=zstd,space_cache=v2"
-    mount -o subvol=@,$mount_options "$ROOT_PARTITION" /mnt
-    mount --mkdir -o subvol=@home "$ROOT_PARTITION" /mnt/home
-    mount --mkdir -o subvol=@snapshots "$ROOT_PARTITION" /mnt/.snapshots
-    mount --mkdir -o subvol=@home-snapshots "$ROOT_PARTITION" /mnt/home/.snapshots
-    mount --mkdir -o subvol=@var "$ROOT_PARTITION" /mnt/var
+    mount -o subvol=@,$mount_options "$ROOT_DEVICE" /mnt
+    mount --mkdir -o subvol=@home "$ROOT_DEVICE" /mnt/home
+    mount --mkdir -o subvol=@snapshots "$ROOT_DEVICE" /mnt/.snapshots
+    mount --mkdir -o subvol=@home-snapshots "$ROOT_DEVICE" /mnt/home/.snapshots
+    mount --mkdir -o subvol=@var "$ROOT_DEVICE" /mnt/var
     chattr +C /mnt/var
-    mount --mkdir -o subvol=@var-log "$ROOT_PARTITION" /mnt/var/log
-    mount --mkdir -o subvol=@pacman-pkgs "$ROOT_PARTITION" /mnt/var/cache/pacman/pkg
+    mount --mkdir -o subvol=@var-log "$ROOT_DEVICE" /mnt/var/log
+    mount --mkdir -o subvol=@pacman-pkgs "$ROOT_DEVICE" /mnt/var/cache/pacman/pkg
 }
 
 mount_efi() {
@@ -126,7 +138,7 @@ mount_efi() {
 
 install_base_system() {
     echo "Installing base packages..."
-    pacstrap -K /mnt base base-devel linux-zen linux-zen-headers linux-firmware amd-ucode intel-ucode sudo nano btrfs-progs networkmanager wpa_supplicant reflector git sed snapper
+    pacstrap -K /mnt base base-devel linux-zen linux-zen-headers linux-firmware amd-ucode intel-ucode sudo nano btrfs-progs networkmanager wpa_supplicant reflector git sed snapper cryptsetup
 }
 
 configure_system() {
@@ -163,6 +175,9 @@ configure_mkinitcpio() {
     sed -i '/^HOOKS=/ s/ consolefont//' /mnt/etc/mkinitcpio.conf
     sed -i '/^HOOKS=/ s/base/base systemd keyboard/' /mnt/etc/mkinitcpio.conf
     sed -i '/^HOOKS=/ s/block/sd-vconsole block/' /mnt/etc/mkinitcpio.conf
+    if [[ $ENCRYPT =~ ^[Yy]$ ]]; then
+        sed -i '/^HOOKS=/ s/filesystems/sd-encrypt filesystems/' /mnt/etc/mkinitcpio.conf
+    fi
 
     configure_mkinitcpio_preset
     setup_kernel_cmdline
@@ -182,9 +197,15 @@ configure_mkinitcpio_preset() {
 }
 
 setup_kernel_cmdline() {
-    ROOT_UUID=$(lsblk -no UUID "$ROOT_PARTITION")
-    echo "root=UUID=$ROOT_UUID rw rootfstype=btrfs rootlags=subvol=@ modprobe.blacklist=pcspkr" >/mnt/etc/kernel/cmdline
-    echo "root=UUID=$ROOT_UUID rw rootfstype=btrfs rootlags=subvol=@ modprobe.blacklist=pcspkr" >/mnt/etc/kernel/cmdline_fallback
+    if [[ $ENCRYPT =~ ^[Yy]$ ]]; then
+        ROOT_UUID=$(blkid -s UUID -o value "$ROOT_PARTITION")
+        echo "root=/dev/mapper/cryptroot rw rootfstype=btrfs rootflags=subvol=@ rd.luks.name=$ROOT_UUID=cryptroot modprobe.blacklist=pcspkr" >/mnt/etc/kernel/cmdline
+        echo "root=/dev/mapper/cryptroot rw rootfstype=btrfs rootflags=subvol=@ rd.luks.name=$ROOT_UUID=cryptroot modprobe.blacklist=pcspkr" >/mnt/etc/kernel/cmdline_fallback
+    else
+        ROOT_UUID=$(lsblk -no UUID "$ROOT_PARTITION")
+        echo "root=UUID=$ROOT_UUID rw rootfstype=btrfs rootflags=subvol=@ modprobe.blacklist=pcspkr" >/mnt/etc/kernel/cmdline
+        echo "root=UUID=$ROOT_UUID rw rootfstype=btrfs rootflags=subvol=@ modprobe.blacklist=pcspkr" >/mnt/etc/kernel/cmdline_fallback
+    fi
 }
 
 configure_system_settings() {
