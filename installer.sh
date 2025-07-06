@@ -138,7 +138,7 @@ mount_efi() {
 
 install_base_system() {
     echo "Installing base packages..."
-    pacstrap -K /mnt base base-devel linux-zen linux-zen-headers linux-firmware amd-ucode intel-ucode sudo nano btrfs-progs networkmanager wpa_supplicant reflector git sed snapper cryptsetup
+    pacstrap -K /mnt base base-devel linux-zen linux-zen-headers linux-firmware amd-ucode intel-ucode sudo nano btrfs-progs networkmanager wpa_supplicant reflector git sed snapper cryptsetup limine
 }
 
 configure_system() {
@@ -207,18 +207,6 @@ setup_kernel_cmdline() {
         echo "root=UUID=$ROOT_UUID rw rootfstype=btrfs rootflags=subvol=@ modprobe.blacklist=pcspkr" >/mnt/etc/kernel/cmdline_fallback
     fi
 }
-
-configure_system_settings() {
-    sed -i '/^# %wheel ALL=(ALL:ALL) ALL/ s/# //' /mnt/etc/sudoers
-    echo 'Defaults passwd_timeout=0' >/mnt/etc/sudoers.d/disable-timeout.conf
-
-    sed -i "/\[multilib\]/,/Include/"'s/^#//' /mnt/etc/pacman.conf
-    sed -i 's/^#Color/Color\nILoveCandy/' /mnt/etc/pacman.conf
-    sed -i 's/^#ParallelDownloads/ParallelDownloads/' /mnt/etc/pacman.conf
-
-    configure_makepkg
-}
-
 configure_makepkg() {
     sed -i '/^OPTIONS=/s/\b lto\b/ !lto/g' /mnt/etc/makepkg.conf
     sed -i '/^OPTIONS=/s/\b debug\b/ !debug/g' /mnt/etc/makepkg.conf
@@ -232,9 +220,14 @@ configure_makepkg() {
     fi
 }
 
-install_bootloader() {
-    echo "Installing systemd-boot"
-    bootctl --esp-path=/mnt/efi install
+configure_system_settings() {
+    sed -i '/^# %wheel ALL=(ALL:ALL) ALL/ s/# //' /mnt/etc/sudoers
+    echo 'Defaults passwd_timeout=0' >/mnt/etc/sudoers.d/disable-timeout.conf
+
+    sed -i "/\[multilib\]/,/Include/"'s/^#//' /mnt/etc/pacman.conf
+    sed -i 's/^#Color/Color\nILoveCandy/' /mnt/etc/pacman.conf
+    sed -i 's/^#ParallelDownloads/ParallelDownloads/' /mnt/etc/pacman.conf
+
 }
 
 setup_users() {
@@ -276,8 +269,26 @@ setup_user_account() {
     arch-chroot /mnt useradd -m -G wheel -s /bin/bash "$USERNAME"
     echo "$USERNAME:$PASSWORD" | arch-chroot /mnt chpasswd
 }
+setup_yay() {
+    arch-chroot /mnt mkdir -p /opt/yay-build
+    arch-chroot /mnt chown $USERNAME:$USERNAME /opt/yay-build
 
-# Main execution
+    arch-chroot /mnt runuser -u $USERNAME -- bash -c '
+        cd /opt/yay-build
+        git clone https://aur.archlinux.org/yay-bin.git
+        cd yay-bin
+        makepkg -si --noconfirm
+    '       
+}
+install_bootloader() {
+    echo "Installing limine"
+    mkdir -p /mnt/efi/EFI/limine
+    arch-chroot /mnt cp /usr/share/limine/BOOTX64.EFI /efi/EFI/limine/
+    SYSTEM_DISK=$(lsblk -no pkname "$EFI_PARTITION")
+    EFI_PARTITION_NUMBER=$(echo "$EFI_PARTITION" | grep -o '[0-9]*$')
+    efibootmgr --create --disk /dev/$SYSTEM_DISK --part $EFI_PARTITION_NUMBER --label "Arch Linux Limine Bootloader" --loader '\EFI\limine\BOOTX64.EFI' --unicode
+}
+
 setup_logging
 check_root
 check_uefi
@@ -288,11 +299,13 @@ create_subvolumes
 mount_subvolumes
 mount_efi
 install_base_system
+configure_makepkg
 configure_system
 setup_networking
 configure_mkinitcpio
 configure_system_settings
 install_bootloader
 setup_users
+setup_yay
 
 echo "Installation completed at $(date)"

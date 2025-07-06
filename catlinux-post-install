@@ -1,0 +1,24 @@
+#!/bin/bash
+
+set -e
+check_root() {
+    if [ "$(id -u)" != "0" ]; then
+        if command -v sudo >/dev/null 2>&1; then
+            exec sudo "$0" "$@" || exit 1
+        else
+            echo "This script must be run as root or with sudo" 1>&2
+            exit 1
+        fi
+    fi
+}
+setup_snapper() {
+    umount /mnt/.snapshots
+    rm -r /mnt/.snapshots
+    arch-chroot /mnt snapper -c root create-config /
+    btrfs subvolume delete /mnt/.snapshots
+    mkdir /.snapshots
+    mount --mkdir -o subvol=@snapshots "$ROOT_DEVICE" /mnt/.snapshots
+    chmod -R 750 /mnt/.snapshots
+}
+
+setup_snapper
