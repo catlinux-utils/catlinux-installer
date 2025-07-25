@@ -284,13 +284,14 @@ setup_yay() {
 install_bootloader() {
     echo "Installing limine"
     mkdir -p /mnt/efi/EFI/limine
-    arch-chroot /mnt cp /usr/share/limine/BOOTX64.EFI /efi/EFI/limine/
-    SYSTEM_DISK=$(lsblk -no pkname "$EFI_PARTITION")
-    EFI_PARTITION_NUMBER=$(echo "$EFI_PARTITION" | grep -o '[0-9]*$')
-    efibootmgr --create --disk /dev/$SYSTEM_DISK --part $EFI_PARTITION_NUMBER --label "Arch Linux Limine Bootloader" --loader '\EFI\limine\BOOTX64.EFI' --unicode
     arch-chroot /mnt runuser -u $USERNAME -- bash -c '
-        yay -S limine-mkinitcpio-hook --noconfirm --needed
+        yay -Syy limine-mkinitcpio-hook --noconfirm --needed
     '
+    cp /mnt/etc/limine-entry-tool.conf  /mnt/etc/default/limine
+    sed -i 's/^ENABLE_UKI=no/ENABLE_UKI=yes/' /mnt/etc/default/limine
+    arch-chroot /mnt limine-update
+    
+
 }
 
 setup_logging
@@ -308,8 +309,8 @@ configure_system
 setup_networking
 configure_mkinitcpio
 configure_system_settings
-install_bootloader
 setup_users
 setup_yay
+install_bootloader
 
 echo "Installation completed at $(date)"
