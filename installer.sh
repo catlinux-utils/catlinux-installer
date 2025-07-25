@@ -279,6 +279,7 @@ setup_yay() {
         cd yay-bin
         makepkg -si --noconfirm
     '       
+
 }
 install_bootloader() {
     echo "Installing limine"
@@ -287,6 +288,9 @@ install_bootloader() {
     SYSTEM_DISK=$(lsblk -no pkname "$EFI_PARTITION")
     EFI_PARTITION_NUMBER=$(echo "$EFI_PARTITION" | grep -o '[0-9]*$')
     efibootmgr --create --disk /dev/$SYSTEM_DISK --part $EFI_PARTITION_NUMBER --label "Arch Linux Limine Bootloader" --loader '\EFI\limine\BOOTX64.EFI' --unicode
+    arch-chroot /mnt runuser -u $USERNAME -- bash -c '
+        yay -S limine-mkinitcpio-hook --noconfirm --needed
+    '
 }
 
 setup_logging
