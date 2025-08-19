@@ -18,7 +18,7 @@ This script automates the installation and configuration of a Linux system with 
 - Removes existing initramfs images and regenerates them.
 - Adjusts user and permission settings, including enabling the `wheel` group for `sudo`.
 - Optimizes `makepkg` configuration based on system memory.
-- Installs `systemd-boot` bootloader.
+- Installs `limine` bootloader.
 - Allows setting of root and user passwords.
 
 ## Usage
